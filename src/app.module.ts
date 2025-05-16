@@ -23,7 +23,7 @@ import configuration from './config/configuration';
         password: configService.get('database.password'),
         database: configService.get('database.database'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // Note: Set to false in production
+        synchronize: configService.get('database.synchronize'),
       }),
       inject: [ConfigService],
     }),
