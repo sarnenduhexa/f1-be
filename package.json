@@ -1,8 +1,8 @@
 {
   "name": "f1-be",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "description": "F1 API",
+  "author": "Sarnendu Mukherjee",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

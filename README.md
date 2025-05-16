@@ -57,6 +57,42 @@ npm run build
 npm run start:prod
 ```
 
+## Docker Usage
+
+### Building the Image
+
+Build the Docker image:
+```bash
+docker build -t sarnenduhexa/f1-dashboard-backend:latest .
+```
+
+### Running with Docker
+
+Run the container with environment variables:
+```bash
+docker run -d \
+  --name f1-dashboard-backend \
+  -p 3000:3000 \
+  -e DB_HOST=localhost \
+  -e DB_PORT=5432 \
+  -e DB_USERNAME=postgres \
+  -e DB_PASSWORD=postgres \
+  -e DB_DATABASE=f1_db \
+  sarnenduhexa/f1-dashboard-backend:latest
+```
+
+### Publishing to Docker Hub
+
+1. Login to Docker Hub:
+```bash
+docker login
+```
+
+2. Push the image:
+```bash
+docker push sarnenduhexa/f1-dashboard-backend:latest
+```
+
 ## API Documentation
 
 Once the application is running, you can access the Swagger documentation at:
