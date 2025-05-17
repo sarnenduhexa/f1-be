@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SeasonsModule } from './seasons/seasons.module';
 import { RacesModule } from './races/races.module';
+import { DriversModule } from './drivers/drivers.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -29,6 +30,7 @@ import configuration from './config/configuration';
     }),
     SeasonsModule,
     RacesModule,
+    DriversModule,
   ],
   controllers: [AppController],
   providers: [AppService],
