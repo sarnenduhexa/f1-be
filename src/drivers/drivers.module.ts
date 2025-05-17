@@ -6,4 +6,4 @@ import { Driver } from './entities/driver.entity';
   imports: [TypeOrmModule.forFeature([Driver])],
   exports: [TypeOrmModule],
 })
-export class DriversModule {} 
+export class DriversModule {}

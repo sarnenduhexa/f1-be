@@ -35,4 +35,4 @@ export class RaceDto {
   @IsString()
   @IsOptional()
   url?: string;
-} 
+}

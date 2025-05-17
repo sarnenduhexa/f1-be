@@ -11,7 +11,10 @@ export class SeasonDto {
   @IsString()
   url: string;
 
-  @ApiProperty({ description: 'The driver who won the season', required: false })
+  @ApiProperty({
+    description: 'The driver who won the season',
+    required: false,
+  })
   @IsOptional()
   winner?: DriverDto;
-} 
+}

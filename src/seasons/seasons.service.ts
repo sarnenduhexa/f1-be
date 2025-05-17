@@ -2,21 +2,14 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { Season } from './entities/season.entity';
 import { SeasonDto } from './dto/season.dto';
 import { Driver } from '../drivers/entities/driver.entity';
-
-interface ErgastDriver {
-  driverId: string;
-  permanentNumber: string;
-  code: string;
-  url: string;
-  givenName: string;
-  familyName: string;
-  dateOfBirth: string;
-  nationality: string;
-}
+import {
+  ErgastResponse,
+  ErgastDriver,
+} from './interfaces/ergast-response.interface';
 
 @Injectable()
 export class SeasonsService {
@@ -31,26 +24,32 @@ export class SeasonsService {
   ) {}
 
   async findAll(): Promise<SeasonDto[]> {
-    const seasons = await this.seasonsRepository.find({ 
-      order: { year: "ASC" },
-      relations: ['winner']
+    const seasons = await this.seasonsRepository.find({
+      order: { year: 'ASC' },
+      relations: ['winner'],
     });
 
     if (seasons.length === 0) {
-      return this.fetchAndStoreSeasons();
+      await this.fetchAndStoreSeasons();
+      const newSeasons = await this.seasonsRepository.find({
+        order: { year: 'ASC' },
+      });
+      await this.fetchAndStoreWinners(newSeasons);
+      return this.seasonsRepository.find({
+        order: { year: 'ASC' },
+        relations: ['winner'],
+      });
     }
 
-    // Find seasons without winner data
-    const seasonsWithoutWinner = seasons.filter(season => !season.winner);
-    
+    const seasonsWithoutWinner = seasons.filter(
+      (season) => !season.winnerDriverId,
+    );
+
     if (seasonsWithoutWinner.length > 0) {
-      this.logger.debug(`Found ${seasonsWithoutWinner.length} seasons without winner data. Attempting to fetch...`);
-      await this.fetchMissingWinnerData(seasonsWithoutWinner);
-      
-      // Fetch updated seasons with winner data
-      return this.seasonsRepository.find({ 
-        order: { year: "ASC" },
-        relations: ['winner']
+      await this.fetchAndStoreWinners(seasonsWithoutWinner);
+      return this.seasonsRepository.find({
+        order: { year: 'ASC' },
+        relations: ['winner'],
       });
     }
 
@@ -58,10 +57,11 @@ export class SeasonsService {
   }
 
   async findOne(year: number): Promise<SeasonDto> {
-    const season = await this.seasonsRepository.findOne({ 
+    const season = await this.seasonsRepository.findOne({
       where: { year },
-      relations: ['winner']
+      relations: ['winner'],
     });
+
     if (!season) {
       const seasons = await this.fetchAndStoreSeasons();
       const foundSeason = seasons.find((s) => s.year === year);
@@ -70,122 +70,92 @@ export class SeasonsService {
       }
       return foundSeason;
     }
+
+    if (!season.winnerDriverId) {
+      await this.fetchAndStoreWinners([season]);
+      const updatedSeason = await this.seasonsRepository.findOne({
+        where: { year },
+        relations: ['winner'],
+      });
+      if (!updatedSeason) {
+        throw new NotFoundException(`Season ${year} not found`);
+      }
+      return updatedSeason;
+    }
+
     return season;
   }
 
-  private async fetchMissingWinnerData(seasons: Season[]): Promise<void> {
+  private async fetchAndStoreSeasons(): Promise<Season[]> {
+    const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
+    const response = await axios.get<ErgastResponse>(`${baseUrl}/f1/seasons`, {
+      params: {
+        // This is hardcoded because our requirement is to only show data from 2005.
+        offset: 55,
+      },
+    });
+    const seasons =
+      response.data.MRData.SeasonTable?.Seasons.map((season) => ({
+        year: season.season,
+        url: season.url,
+      })) ?? [];
+
+    await this.seasonsRepository.save(seasons);
+    return this.seasonsRepository.find({
+      order: { year: 'ASC' },
+      relations: ['winner'],
+    });
+  }
+
+  private async fetchAndStoreWinners(seasons: Season[]): Promise<void> {
     const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
 
     for (const season of seasons) {
       try {
-        // Fetch winner driver details for the season
-        const driverStandingsResponse = await axios.get(
-          `${baseUrl}/f1/${season.year}/driverStandings/1`
+        const response = await axios.get<ErgastResponse>(
+          `${baseUrl}/f1/${season.year}/driverStandings/1`,
         );
 
-        if (driverStandingsResponse.data.MRData.StandingsTable.StandingsLists.length > 0) {
-          const driverData: ErgastDriver = driverStandingsResponse.data.MRData.StandingsTable.StandingsLists[0].DriverStandings[0].Driver;
-          
-          // Create or update driver record
-          const winnerDriver = await this.driversRepository.save({
-            driverId: driverData.driverId,
-            permanentNumber: driverData.permanentNumber,
-            code: driverData.code,
-            url: driverData.url,
-            givenName: driverData.givenName,
-            familyName: driverData.familyName,
-            dateOfBirth: new Date(driverData.dateOfBirth),
-            nationality: driverData.nationality,
-          });
+        const driverData =
+          response.data.MRData.StandingsTable?.StandingsLists[0]
+            ?.DriverStandings[0]?.Driver;
 
-          // Update season with winner data
+        if (driverData) {
+          const driver = await this.saveDriver(driverData);
           await this.seasonsRepository.update(
             { year: season.year },
-            { winnerDriverId: winnerDriver.driverId }
+            { winnerDriverId: driver.driverId },
           );
-
-          this.logger.debug(`Successfully fetched and stored winner data for season ${season.year}`);
         }
       } catch (error) {
-        if (error instanceof AxiosError) {
-          this.logger.warn(`Failed to fetch winner driver data for season ${season.year}: ${error.message}`);
-        } else {
-          this.logger.error(`Unexpected error fetching winner driver data for season ${season.year}:`, error);
-        }
+        console.error(
+          `Failed to fetch winner data for season ${season.year}:`,
+          error,
+        );
       }
     }
   }
 
-  private async fetchAndStoreSeasons(): Promise<SeasonDto[]> {
-    const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
-    const response = await axios.get(`${baseUrl}/f1/seasons`, {
-      // This is hardcoded because our requirement is to only show data from 2005.
-      params: { offset: 55 }
+  private async saveDriver(driverData: ErgastDriver): Promise<Driver> {
+    const existingDriver = await this.driversRepository.findOne({
+      where: { driverId: driverData.driverId },
     });
 
-    const seasons = await Promise.all(
-      response.data.MRData.SeasonTable.Seasons.map(async (season) => {
-        const year = parseInt(season.season);
-        
-        // Check if we already have the winner driver data for this season
-        const existingSeason = await this.seasonsRepository.findOne({
-          where: { year },
-          relations: ['winner'],
-        });
+    if (existingDriver) {
+      return existingDriver;
+    }
 
-        if (existingSeason?.winner) {
-          this.logger.debug(`Using existing winner driver data for season ${year}`);
-          return existingSeason;
-        }
+    const driver = this.driversRepository.create({
+      driverId: driverData.driverId,
+      permanentNumber: driverData.permanentNumber,
+      code: driverData.code,
+      url: driverData.url,
+      givenName: driverData.givenName,
+      familyName: driverData.familyName,
+      dateOfBirth: new Date(driverData.dateOfBirth),
+      nationality: driverData.nationality,
+    });
 
-        try {
-          // Fetch winner driver details for the season
-          const driverStandingsResponse = await axios.get(
-            `${baseUrl}/f1/${year}/driverStandings/1`
-          );
-
-          if (driverStandingsResponse.data.MRData.StandingsTable.StandingsLists.length > 0) {
-            const driverData: ErgastDriver = driverStandingsResponse.data.MRData.StandingsTable.StandingsLists[0].DriverStandings[0].Driver;
-            
-            // Create or update driver record
-            const winnerDriver = await this.driversRepository.save({
-              driverId: driverData.driverId,
-              permanentNumber: driverData.permanentNumber,
-              code: driverData.code,
-              url: driverData.url,
-              givenName: driverData.givenName,
-              familyName: driverData.familyName,
-              dateOfBirth: new Date(driverData.dateOfBirth),
-              nationality: driverData.nationality,
-            });
-
-            return {
-              year,
-              url: season.url,
-              winnerDriverId: winnerDriver.driverId,
-              winner: winnerDriver,
-            };
-          }
-        } catch (error) {
-          if (error instanceof AxiosError) {
-            this.logger.warn(`Failed to fetch winner driver data for season ${year}: ${error.message}`);
-          } else {
-            this.logger.error(`Unexpected error fetching winner driver data for season ${year}:`, error);
-          }
-        }
-
-        // Return season without winner data if the API call failed
-        return {
-          year,
-          url: season.url,
-          winnerDriverId: undefined,
-          winner: undefined,
-        };
-      })
-    );
-
-    // Save all seasons, including those without winner data
-    await this.seasonsRepository.save(seasons);
-    return seasons;
+    return this.driversRepository.save(driver);
   }
 }

@@ -36,4 +36,4 @@ export class Race {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
-} 
+}

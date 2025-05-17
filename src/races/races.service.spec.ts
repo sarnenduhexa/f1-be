@@ -1,17 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
 import { RacesService } from './races.service';
 import { Race } from './entities/race.entity';
 import axios from 'axios';
+import { ErgastResponse } from './interfaces/ergast-response.interface';
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('RacesService', () => {
   let service: RacesService;
-  let repository: Repository<Race>;
 
   const mockRace = {
     id: '2023-1',
@@ -50,7 +49,6 @@ describe('RacesService', () => {
     }).compile();
 
     service = module.get<RacesService>(RacesService);
-    repository = module.get<Repository<Race>>(getRepositoryToken(Race));
   });
 
   it('should be defined', () => {
@@ -67,25 +65,40 @@ describe('RacesService', () => {
 
     it('should fetch and store races if none exist in repository', async () => {
       mockRepository.find.mockResolvedValue([]);
-      mockedAxios.get.mockResolvedValue({
-        data: {
-          MRData: {
-            RaceTable: {
-              Races: [{
+      const mockResponse: ErgastResponse = {
+        MRData: {
+          xmlns: '',
+          series: '',
+          url: '',
+          limit: '',
+          offset: '',
+          total: '',
+          RaceTable: {
+            Races: [
+              {
                 season: '2023',
                 round: '1',
                 raceName: 'Bahrain Grand Prix',
                 Circuit: {
+                  circuitId: '',
                   circuitName: 'Bahrain International Circuit',
+                  url: '',
+                  Location: {
+                    lat: '',
+                    long: '',
+                    locality: '',
+                    country: '',
+                  },
                 },
                 date: '2023-03-05',
                 time: '15:00:00Z',
                 url: 'https://api.jolpi.ca/ergast/f1/2023/1',
-              }],
-            },
+              },
+            ],
           },
         },
-      });
+      };
+      mockedAxios.get.mockResolvedValue({ data: mockResponse });
 
       const result = await service.findAll();
       expect(result).toEqual([mockRace]);
@@ -98,30 +111,47 @@ describe('RacesService', () => {
       mockRepository.find.mockResolvedValue([mockRace]);
       const result = await service.findBySeason(2023);
       expect(result).toEqual([mockRace]);
-      expect(mockRepository.find).toHaveBeenCalledWith({ where: { season: 2023 } });
+      expect(mockRepository.find).toHaveBeenCalledWith({
+        where: { season: 2023 },
+      });
     });
 
     it('should fetch and store races if none exist for the season in repository', async () => {
       mockRepository.find.mockResolvedValue([]);
-      mockedAxios.get.mockResolvedValue({
-        data: {
-          MRData: {
-            RaceTable: {
-              Races: [{
+      const mockResponse: ErgastResponse = {
+        MRData: {
+          xmlns: '',
+          series: '',
+          url: '',
+          limit: '',
+          offset: '',
+          total: '',
+          RaceTable: {
+            Races: [
+              {
                 season: '2023',
                 round: '1',
                 raceName: 'Bahrain Grand Prix',
                 Circuit: {
+                  circuitId: '',
                   circuitName: 'Bahrain International Circuit',
+                  url: '',
+                  Location: {
+                    lat: '',
+                    long: '',
+                    locality: '',
+                    country: '',
+                  },
                 },
                 date: '2023-03-05',
                 time: '15:00:00Z',
                 url: 'https://api.jolpi.ca/ergast/f1/2023/1',
-              }],
-            },
+              },
+            ],
           },
         },
-      });
+      };
+      mockedAxios.get.mockResolvedValue({ data: mockResponse });
 
       const result = await service.findBySeason(2023);
       expect(result).toEqual([mockRace]);
@@ -141,25 +171,40 @@ describe('RacesService', () => {
 
     it('should fetch and store races if the requested race is not in repository', async () => {
       mockRepository.findOne.mockResolvedValue(null);
-      mockedAxios.get.mockResolvedValue({
-        data: {
-          MRData: {
-            RaceTable: {
-              Races: [{
+      const mockResponse: ErgastResponse = {
+        MRData: {
+          xmlns: '',
+          series: '',
+          url: '',
+          limit: '',
+          offset: '',
+          total: '',
+          RaceTable: {
+            Races: [
+              {
                 season: '2023',
                 round: '1',
                 raceName: 'Bahrain Grand Prix',
                 Circuit: {
+                  circuitId: '',
                   circuitName: 'Bahrain International Circuit',
+                  url: '',
+                  Location: {
+                    lat: '',
+                    long: '',
+                    locality: '',
+                    country: '',
+                  },
                 },
                 date: '2023-03-05',
                 time: '15:00:00Z',
                 url: 'https://api.jolpi.ca/ergast/f1/2023/1',
-              }],
-            },
+              },
+            ],
           },
         },
-      });
+      };
+      mockedAxios.get.mockResolvedValue({ data: mockResponse });
 
       const result = await service.findOne(2023, 1);
       expect(result).toEqual(mockRace);
