@@ -31,4 +31,4 @@ export class Driver {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
-} 
+}

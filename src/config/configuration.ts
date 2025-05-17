@@ -11,4 +11,4 @@ export default () => ({
   ergastApi: {
     baseUrl: 'https://api.jolpi.ca/ergast',
   },
-}); 
+});

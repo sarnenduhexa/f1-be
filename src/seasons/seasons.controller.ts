@@ -10,14 +10,22 @@ export class SeasonsController {
 
   @Get()
   @ApiOperation({ summary: 'Get all F1 seasons' })
-  @ApiResponse({ status: 200, description: 'Returns all F1 seasons', type: [SeasonDto] })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns all F1 seasons',
+    type: [SeasonDto],
+  })
   async findAll(): Promise<SeasonDto[]> {
     return this.seasonsService.findAll();
   }
 
   @Get(':year')
   @ApiOperation({ summary: 'Get a specific F1 season by year' })
-  @ApiResponse({ status: 200, description: 'Returns the F1 season for the specified year', type: SeasonDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the F1 season for the specified year',
+    type: SeasonDto,
+  })
   @ApiResponse({ status: 404, description: 'Season not found' })
   async findOne(@Param('year', ParseIntPipe) year: number): Promise<SeasonDto> {
     return this.seasonsService.findOne(year);

@@ -6,11 +6,8 @@ import { Season } from './entities/season.entity';
 import { DriversModule } from '../drivers/drivers.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Season]),
-    DriversModule
-  ],
+  imports: [TypeOrmModule.forFeature([Season]), DriversModule],
   controllers: [SeasonsController],
-  providers: [SeasonsService]
+  providers: [SeasonsService],
 })
 export class SeasonsModule {}
