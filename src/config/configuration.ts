@@ -6,6 +6,7 @@ export default () => ({
     username: process.env.DB_USERNAME || 'postgres',
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_DATABASE || 'f1_db',
+    synchronize: process.env.NODE_ENV === 'development',
   },
   ergastApi: {
     baseUrl: 'https://api.jolpi.ca/ergast',

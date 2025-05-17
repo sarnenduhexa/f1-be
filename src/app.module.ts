@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SeasonsModule } from './seasons/seasons.module';
 import { RacesModule } from './races/races.module';
+import { DriversModule } from './drivers/drivers.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -23,12 +24,13 @@ import configuration from './config/configuration';
         password: configService.get('database.password'),
         database: configService.get('database.database'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // Note: Set to false in production
+        synchronize: configService.get('database.synchronize'),
       }),
       inject: [ConfigService],
     }),
     SeasonsModule,
     RacesModule,
+    DriversModule,
   ],
   controllers: [AppController],
   providers: [AppService],

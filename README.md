@@ -31,6 +31,7 @@ npm install
 
 3. Create a `.env` file in the root directory with the following variables:
 ```env
+NODE_ENV=development
 PORT=3000
 DB_HOST=localhost
 DB_PORT=5432
