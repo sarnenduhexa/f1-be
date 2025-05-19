@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -18,45 +18,12 @@ export class RacesService {
     private configService: ConfigService,
   ) {}
 
-  async findAll(): Promise<RaceDto[]> {
-    const races = await this.racesRepository.find();
-    if (races.length === 0) {
-      return this.fetchAndStoreRaces();
-    }
-    return races;
-  }
-
   async findBySeason(season: number): Promise<RaceDto[]> {
     const races = await this.racesRepository.find({ where: { season } });
     if (races.length === 0) {
       return this.fetchAndStoreRacesBySeason(season);
     }
     return races;
-  }
-
-  async findOne(season: number, round: number): Promise<RaceDto> {
-    const race = await this.racesRepository.findOne({
-      where: { season, round },
-    });
-    if (!race) {
-      const races = await this.fetchAndStoreRacesBySeason(season);
-      const foundRace = races.find((r) => r.round === round);
-      if (!foundRace) {
-        throw new NotFoundException(
-          `Race ${round} for season ${season} not found`,
-        );
-      }
-      return foundRace;
-    }
-    return race;
-  }
-
-  private async fetchAndStoreRaces(): Promise<RaceDto[]> {
-    const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
-    const response = await axios.get<ErgastResponse>(
-      `${baseUrl}/f1/current/races`,
-    );
-    return this.processAndStoreRaces(response.data.MRData.RaceTable.Races);
   }
 
   private async fetchAndStoreRacesBySeason(season: number): Promise<RaceDto[]> {
