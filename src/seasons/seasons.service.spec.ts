@@ -5,6 +5,7 @@ import { SeasonsService } from './seasons.service';
 import { Season } from './entities/season.entity';
 import { Driver } from '../drivers/entities/driver.entity';
 import axios from 'axios';
+import { DriversService } from '../drivers/drivers.service';
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -70,6 +71,10 @@ describe('SeasonsService', () => {
     get: jest.fn().mockReturnValue('https://api.jolpi.ca/ergast'),
   };
 
+  const mockDriversService = {
+    findOrCreate: jest.fn(),
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -89,6 +94,10 @@ describe('SeasonsService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: DriversService,
+          useValue: mockDriversService,
         },
       ],
     }).compile();
@@ -132,6 +141,8 @@ describe('SeasonsService', () => {
                   DriverStandings: [
                     {
                       Driver: mockDriverApiResponse,
+                      points: '454',
+                      wins: '19',
                     },
                   ],
                 },
@@ -141,9 +152,7 @@ describe('SeasonsService', () => {
         },
       });
 
-      mockDriverRepository.findOne.mockResolvedValue(null);
-      mockDriverRepository.create.mockReturnValue(mockDriver);
-      mockDriverRepository.save.mockResolvedValue(mockDriver);
+      mockDriversService.findOrCreate.mockResolvedValue(mockDriver);
 
       const result = await service.findAll();
       expect(result).toEqual([
@@ -161,10 +170,8 @@ describe('SeasonsService', () => {
     });
 
     it('should fetch and store seasons with winner data if none exist in repository', async () => {
-      // First call to find returns empty array
       mockSeasonRepository.find.mockResolvedValueOnce([]);
 
-      // Mock the API response for fetching seasons
       mockedAxios.get.mockResolvedValueOnce({
         data: {
           MRData: {
@@ -175,7 +182,6 @@ describe('SeasonsService', () => {
         },
       });
 
-      // Mock the API response for fetching winner data
       mockedAxios.get.mockResolvedValueOnce({
         data: {
           MRData: {
@@ -185,6 +191,8 @@ describe('SeasonsService', () => {
                   DriverStandings: [
                     {
                       Driver: mockDriverApiResponse,
+                      points: '454',
+                      wins: '19',
                     },
                   ],
                 },
@@ -194,14 +202,11 @@ describe('SeasonsService', () => {
         },
       });
 
-      // Mock the repository responses for the subsequent calls
       mockSeasonRepository.find
         .mockResolvedValueOnce([mockSeasonWithoutWinner])
         .mockResolvedValueOnce([mockSeason]);
 
-      mockDriverRepository.findOne.mockResolvedValue(null);
-      mockDriverRepository.create.mockReturnValue(mockDriver);
-      mockDriverRepository.save.mockResolvedValue(mockDriver);
+      mockDriversService.findOrCreate.mockResolvedValue(mockDriver);
 
       const result = await service.findAll();
 
@@ -224,6 +229,15 @@ describe('SeasonsService', () => {
         { year: season },
         { winnerDriverId: mockDriver.driverId },
       );
+    });
+
+    it('should handle errors when fetching winner data', async () => {
+      mockSeasonRepository.find.mockResolvedValue([mockSeasonWithoutWinner]);
+      mockedAxios.get.mockRejectedValue(new Error('API Error'));
+
+      const result = await service.findAll();
+      expect(result).toEqual([mockSeasonWithoutWinner]);
+      expect(mockSeasonRepository.update).not.toHaveBeenCalled();
     });
   });
 });
