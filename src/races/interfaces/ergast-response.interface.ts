@@ -10,6 +10,36 @@ export interface ErgastCircuit {
   };
 }
 
+export interface ErgastDriver {
+  driverId: string;
+  code: string;
+  url: string;
+  givenName: string;
+  familyName: string;
+  dateOfBirth: string;
+  nationality: string;
+}
+
+export interface ErgastConstructor {
+  constructorId: string;
+  url: string;
+  name: string;
+  nationality: string;
+}
+
+export interface ErgastResult {
+  Driver: ErgastDriver;
+  Constructor: ErgastConstructor;
+  Time?: {
+    millis: string;
+    time: string;
+  };
+  laps: string;
+  grid: string;
+  points: string;
+  status: string;
+}
+
 export interface ErgastRace {
   season: string;
   round: string;
@@ -18,10 +48,11 @@ export interface ErgastRace {
   Circuit: ErgastCircuit;
   date: string;
   time: string;
+  Results?: ErgastResult[];
 }
 
 export interface ErgastRaceTable {
-  season?: string;
+  season: string;
   Races: ErgastRace[];
 }
 
