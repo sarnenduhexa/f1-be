@@ -5,11 +5,8 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Season } from './entities/season.entity';
 import { SeasonDto } from './dto/season.dto';
-import { Driver } from '../drivers/entities/driver.entity';
-import {
-  ErgastResponse,
-  ErgastDriver,
-} from './interfaces/ergast-response.interface';
+import { DriversService } from '../drivers/drivers.service';
+import { ErgastResponse } from './interfaces/ergast-response.interface';
 
 @Injectable()
 export class SeasonsService {
@@ -18,8 +15,7 @@ export class SeasonsService {
   constructor(
     @InjectRepository(Season)
     private seasonsRepository: Repository<Season>,
-    @InjectRepository(Driver)
-    private driversRepository: Repository<Driver>,
+    private driversService: DriversService,
     private configService: ConfigService,
   ) {}
 
@@ -121,41 +117,17 @@ export class SeasonsService {
             ?.DriverStandings[0]?.Driver;
 
         if (driverData) {
-          const driver = await this.saveDriver(driverData);
+          const driver = await this.driversService.findOrCreate(driverData);
           await this.seasonsRepository.update(
             { year: season.year },
             { winnerDriverId: driver.driverId },
           );
         }
       } catch (error) {
-        console.error(
-          `Failed to fetch winner data for season ${season.year}:`,
-          error,
+        this.logger.error(
+          `Failed to fetch winner data for season ${season.year}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
       }
     }
-  }
-
-  private async saveDriver(driverData: ErgastDriver): Promise<Driver> {
-    const existingDriver = await this.driversRepository.findOne({
-      where: { driverId: driverData.driverId },
-    });
-
-    if (existingDriver) {
-      return existingDriver;
-    }
-
-    const driver = this.driversRepository.create({
-      driverId: driverData.driverId,
-      permanentNumber: driverData.permanentNumber,
-      code: driverData.code,
-      url: driverData.url,
-      givenName: driverData.givenName,
-      familyName: driverData.familyName,
-      dateOfBirth: new Date(driverData.dateOfBirth),
-      nationality: driverData.nationality,
-    });
-
-    return this.driversRepository.save(driver);
   }
 }

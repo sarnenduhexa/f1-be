@@ -1,85 +1,228 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Race } from './entities/race.entity';
-import { RaceDto } from './dto/race.dto';
+import { DriversService } from '../drivers/drivers.service';
 import {
   ErgastResponse,
   ErgastRace,
+  ErgastResult,
 } from './interfaces/ergast-response.interface';
+
+interface RaceWithWinner extends ErgastRace {
+  winnerData: ErgastResult | null;
+}
 
 @Injectable()
 export class RacesService {
+  private readonly logger = new Logger(RacesService.name);
+
   constructor(
     @InjectRepository(Race)
-    private racesRepository: Repository<Race>,
-    private configService: ConfigService,
+    private readonly raceRepository: Repository<Race>,
+    private readonly configService: ConfigService,
+    private readonly driversService: DriversService,
   ) {}
 
-  async findAll(): Promise<RaceDto[]> {
-    const races = await this.racesRepository.find();
-    if (races.length === 0) {
-      return this.fetchAndStoreRaces();
-    }
-    return races;
-  }
+  async findBySeason(season: number): Promise<Race[]> {
+    const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
+    try {
+      // First check if we have races for this season
+      const existingRaces = await this.raceRepository.find({
+        where: { season },
+        order: { round: 'ASC' },
+        relations: ['winnerDriver'],
+      });
 
-  async findBySeason(season: number): Promise<RaceDto[]> {
-    const races = await this.racesRepository.find({ where: { season } });
-    if (races.length === 0) {
-      return this.fetchAndStoreRacesBySeason(season);
-    }
-    return races;
-  }
-
-  async findOne(season: number, round: number): Promise<RaceDto> {
-    const race = await this.racesRepository.findOne({
-      where: { season, round },
-    });
-    if (!race) {
-      const races = await this.fetchAndStoreRacesBySeason(season);
-      const foundRace = races.find((r) => r.round === round);
-      if (!foundRace) {
-        throw new NotFoundException(
-          `Race ${round} for season ${season} not found`,
+      if (existingRaces.length > 0) {
+        // Check if any races are missing winner data
+        const racesWithoutWinner = existingRaces.filter(
+          (race) => !race.winnerDriver,
         );
+
+        //If the racesWithoutWinner is empty, we can return the existingRaces
+        if (racesWithoutWinner.length === 0) {
+          return existingRaces;
+        }
+
+        if (racesWithoutWinner.length > 0) {
+          this.logger.log(
+            `Found ${racesWithoutWinner.length} races without winner data for season ${season}`,
+          );
+
+          // Fetch winner data for races without it
+          for (const race of racesWithoutWinner) {
+            try {
+              const url = `${baseUrl}/f1/${season}/${race.round}/results.json?limit=1`;
+              const winnerResponse = await axios.get<ErgastResponse>(url);
+
+              const winnerData =
+                winnerResponse.data.MRData.RaceTable.Races[0]?.Results?.[0];
+
+              if (winnerData?.Driver) {
+                // Ensure driver exists in database
+                const driver = await this.driversService.findOrCreate({
+                  driverId: winnerData.Driver.driverId,
+                  code: winnerData.Driver.code,
+                  url: winnerData.Driver.url,
+                  givenName: winnerData.Driver.givenName,
+                  familyName: winnerData.Driver.familyName,
+                  dateOfBirth: winnerData.Driver.dateOfBirth,
+                  nationality: winnerData.Driver.nationality,
+                });
+
+                // Update race with winner data
+                race.winnerDriver = driver;
+                race.winnerDriverId = driver.driverId;
+                race.winnerTime = winnerData.Time?.time || '';
+                race.winnerLaps = parseInt(winnerData.laps, 10);
+                race.winnerGrid = parseInt(winnerData.grid, 10);
+                race.winnerPoints = parseInt(winnerData.points, 10);
+
+                await this.raceRepository.save(race);
+                this.logger.log(
+                  `Updated winner data for race ${race.round} in season ${season}`,
+                );
+              }
+            } catch (error) {
+              this.logger.error(
+                `Error fetching winner data for race ${race.round} in season ${season}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              );
+            }
+          }
+        }
+
+        // Return all races with updated winner data
+        return this.raceRepository.find({
+          where: { season },
+          order: { round: 'ASC' },
+          relations: ['winnerDriver'],
+        });
       }
-      return foundRace;
+
+      // If no races found, fetch and store them
+      return this.fetchAndStoreRacesBySeason(season);
+    } catch (error) {
+      this.logger.error(
+        `Error finding races for season ${season}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
     }
-    return race;
   }
 
-  private async fetchAndStoreRaces(): Promise<RaceDto[]> {
+  private async fetchAndStoreRacesBySeason(season: number): Promise<Race[]> {
     const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
-    const response = await axios.get<ErgastResponse>(
-      `${baseUrl}/f1/current/races`,
-    );
-    return this.processAndStoreRaces(response.data.MRData.RaceTable.Races);
+    try {
+      const response = await axios.get<ErgastResponse>(
+        `${baseUrl}/f1/${season}/races`,
+      );
+      const races = response.data.MRData.RaceTable.Races;
+
+      // Fetch winner data for each race
+      const racesWithWinners = await Promise.all(
+        races.map(async (race) => {
+          // Check if we already have this race with winner data in DB
+          const existingRace = await this.raceRepository.findOne({
+            where: {
+              season: parseInt(race.season, 10),
+              round: parseInt(race.round, 10),
+              winnerDriverId: Not(IsNull()),
+            },
+            relations: ['winnerDriver'],
+          });
+
+          if (existingRace) {
+            return existingRace;
+          }
+
+          try {
+            const winnerResponse = await axios.get<ErgastResponse>(
+              `${baseUrl}/f1/${season}/${race.round}/results.json?limit=1`,
+            );
+            const winnerData =
+              winnerResponse.data.MRData.RaceTable.Races[0]?.Results?.[0];
+
+            // If we have winner data, ensure the driver exists in our database
+            if (winnerData?.Driver) {
+              await this.driversService.findOrCreate(winnerData.Driver);
+            }
+
+            return {
+              ...race,
+              winnerData: winnerData || null,
+            } as RaceWithWinner;
+          } catch (error) {
+            this.logger.error(
+              `Error fetching winner data for race ${race.round}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            );
+            return {
+              ...race,
+              winnerData: null,
+            } as RaceWithWinner;
+          }
+        }),
+      );
+
+      return this.processAndStoreRaces(racesWithWinners);
+    } catch (error) {
+      this.logger.error(
+        `Error fetching races for season ${season}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
   }
 
-  private async fetchAndStoreRacesBySeason(season: number): Promise<RaceDto[]> {
-    const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
-    const response = await axios.get<ErgastResponse>(
-      `${baseUrl}/f1/${season}/races`,
-    );
-    return this.processAndStoreRaces(response.data.MRData.RaceTable.Races);
-  }
+  private async processAndStoreRaces(
+    races: (RaceWithWinner | Race)[],
+  ): Promise<Race[]> {
+    const processedRaces = races.map((race) => {
+      if (race instanceof Race) {
+        return race;
+      }
 
-  private async processAndStoreRaces(races: ErgastRace[]): Promise<RaceDto[]> {
-    const processedRaces = races.map((race) => ({
-      id: `${race.season}-${race.round}`,
-      season: parseInt(race.season, 10),
-      round: parseInt(race.round, 10),
-      raceName: race.raceName,
-      circuitName: race.Circuit.circuitName,
-      date: new Date(race.date),
-      time: race.time,
-      url: race.url,
-    }));
+      const raceData: Partial<Race> = {
+        id: `${race.season}-${race.round}`,
+        season: parseInt(race.season, 10),
+        round: parseInt(race.round, 10),
+        raceName: race.raceName,
+        circuitName: race.Circuit.circuitName,
+        date: new Date(race.date),
+        time: race.time,
+        url: race.url,
+      };
 
-    await this.racesRepository.save(processedRaces);
-    return processedRaces;
+      if (race.winnerData) {
+        raceData.winnerDriverId = race.winnerData.Driver?.driverId;
+        raceData.winnerConstructorId =
+          race.winnerData.Constructor?.constructorId;
+        raceData.winnerTime = race.winnerData.Time?.time;
+        raceData.winnerLaps = race.winnerData.laps
+          ? parseInt(race.winnerData.laps, 10)
+          : undefined;
+        raceData.winnerGrid = race.winnerData.grid
+          ? parseInt(race.winnerData.grid, 10)
+          : undefined;
+        raceData.winnerPoints = race.winnerData.points
+          ? parseInt(race.winnerData.points, 10)
+          : undefined;
+      }
+
+      return raceData;
+    });
+
+    try {
+      const savedRaces = await this.raceRepository.save(processedRaces);
+      return this.raceRepository.find({
+        where: { id: In(savedRaces.map((race) => race.id)) },
+        relations: ['winnerDriver'],
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error storing races: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
   }
 }

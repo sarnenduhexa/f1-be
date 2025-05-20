@@ -1,13 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RacesController } from './races.controller';
 import { RacesService } from './races.service';
+
 describe('RacesController', () => {
   let controller: RacesController;
 
   const mockRacesService = {
-    findAll: jest.fn(),
     findBySeason: jest.fn(),
-    findOne: jest.fn(),
   };
 
   beforeEach(async () => {

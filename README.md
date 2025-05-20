@@ -108,9 +108,7 @@ http://localhost:3000/api
 - GET /seasons/:year - Get a specific season by year
 
 ### Races
-- GET /races - Get all races
 - GET /races/season/:season - Get all races for a specific season
-- GET /races/season/:season/round/:round - Get a specific race by season and round
 
 ## Testing
 

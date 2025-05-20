@@ -56,7 +56,9 @@ jobs:
       with:
         context: .
         push: true
-        platforms: linux/amd64,linux/arm64
+        # TODO: Uncomment this to build for multiple platforms.
+        # For now, we are only building for amd64 to save usage.
+        # platforms: linux/amd64,linux/arm64
         tags: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }},${{ env.DOCKER_IMAGE }}:latest
 
   codeql:
