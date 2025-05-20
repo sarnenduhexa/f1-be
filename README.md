@@ -9,6 +9,7 @@ A NestJS backend application for the F1 Dashboard that provides data about F1 se
 - PostgreSQL database integration
 - External API integration with Ergast F1 API
 - Unit tests
+- TypeORM migrations for database schema management
 
 ## Prerequisites
 
@@ -16,7 +17,7 @@ A NestJS backend application for the F1 Dashboard that provides data about F1 se
 - PostgreSQL
 - npm or yarn
 
-## Installation
+## Running for the First Time
 
 1. Clone the repository:
 ```bash
@@ -44,6 +45,61 @@ DB_DATABASE=f1_db
 ```bash
 createdb f1_db
 ```
+
+5. Run the database migrations:
+```bash
+npm run migration:run
+```
+
+6. Start the application:
+```bash
+npm run start:dev
+```
+
+## TypeORM Migrations
+
+This project uses TypeORM migrations to manage database schema changes. Here's how to work with migrations:
+
+### Available Commands
+
+- Generate a new migration:
+```bash
+npm run migration:generate src/migrations/YourMigrationName
+```
+
+- Run pending migrations:
+```bash
+npm run migration:run
+```
+
+- Revert the last migration:
+```bash
+npm run migration:revert
+```
+
+### Best Practices
+
+1. Always generate migrations for schema changes:
+   - Make changes to your entity files
+   - Run `npm run migration:generate` to create a migration
+   - Review the generated migration file
+   - Run `npm run migration:run` to apply the changes
+
+2. Never modify existing migration files after they've been committed
+
+3. Test migrations in development before deploying to production
+
+4. Keep migrations in version control
+
+5. When deploying:
+   - The application will automatically run migrations on startup
+   - Make sure the database user has sufficient permissions
+
+### Migration Files
+
+Migration files are stored in the `src/migrations` directory. Each migration file contains:
+- `up()` method: Defines how to apply the migration
+- `down()` method: Defines how to revert the migration
 
 ## Running the Application
 

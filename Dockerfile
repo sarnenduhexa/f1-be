@@ -28,6 +28,8 @@ RUN npm ci --only=production
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src/migrations ./src/migrations
+COPY --from=builder /app/src/config/typeorm.config.ts ./src/config/typeorm.config.ts
 
 # Create a non-root user
 RUN addgroup -g 1001 -S nodejs
@@ -42,5 +44,9 @@ USER nestjs
 # Expose the port
 EXPOSE 3000
 
+# Create startup script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Start the application
-CMD ["node", "dist/main"] 
+ENTRYPOINT ["docker-entrypoint.sh"] 
