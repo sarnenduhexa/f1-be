@@ -35,6 +35,10 @@ COPY --from=builder /app/src/config/typeorm.config.ts ./src/config/typeorm.confi
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nestjs -u 1001
 
+# Create startup script and set permissions
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Set ownership
 RUN chown -R nestjs:nodejs /app
 
@@ -43,10 +47,6 @@ USER nestjs
 
 # Expose the port
 EXPOSE 3000
-
-# Create startup script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Start the application
 ENTRYPOINT ["docker-entrypoint.sh"] 
