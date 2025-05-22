@@ -150,6 +150,57 @@ docker login
 docker push sarnenduhexa/f1-dashboard-backend:latest
 ```
 
+## CI/CD Pipeline
+
+This project uses GitHub Actions for continuous integration and deployment. The pipeline is triggered on push to the main branch and on pull requests.
+
+### Pipeline Stages
+
+1. **Quality Assurance**
+   - Runs linting checks
+   - Executes unit tests
+   - Uses Node.js 22
+
+2. **Security Scanning**
+   - CodeQL Analysis for JavaScript
+   - Trivy vulnerability scanning for:
+     - Dependencies
+     - Docker container (on main branch)
+
+3. **Docker Build & Push**
+   - Builds multi-platform Docker image (linux/amd64)
+   - Pushes to Docker Hub with:
+     - Latest tag
+     - Git commit SHA tag
+   - Only runs on main branch
+
+### Pipeline Triggers
+
+- Push to main branch
+- Pull requests to main branch
+
+### Security Features
+
+- CodeQL analysis for code security
+- Trivy scanning for:
+  - Critical and High severity vulnerabilities
+  - OS and library vulnerabilities
+  - Container vulnerabilities
+
+### Docker Image
+
+The pipeline automatically builds and pushes Docker images to Docker Hub:
+- Image: `sarnenduhexa/f1-be`
+- Tags:
+  - `latest`: Latest stable version
+  - `<commit-sha>`: Version-specific tag
+
+### Required Secrets
+
+The following secrets need to be configured in GitHub:
+- `DOCKERHUB_USERNAME`: Docker Hub username
+- `DOCKERHUB_TOKEN`: Docker Hub access token
+
 ## API Documentation
 
 Once the application is running, you can access the Swagger documentation at:
