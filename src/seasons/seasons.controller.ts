@@ -1,4 +1,12 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  SerializeOptions,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SeasonsService } from './seasons.service';
 import { SeasonDto } from './dto/season.dto';
@@ -15,6 +23,8 @@ export class SeasonsController {
     description: 'Returns all F1 seasons',
     type: [SeasonDto],
   })
+  @UseInterceptors(ClassSerializerInterceptor)
+  @SerializeOptions({ type: SeasonDto })
   async findAll(): Promise<SeasonDto[]> {
     return this.seasonsService.findAll();
   }
@@ -27,6 +37,8 @@ export class SeasonsController {
     type: SeasonDto,
   })
   @ApiResponse({ status: 404, description: 'Season not found' })
+  @UseInterceptors(ClassSerializerInterceptor)
+  @SerializeOptions({ type: SeasonDto })
   async findOne(@Param('year', ParseIntPipe) year: number): Promise<SeasonDto> {
     return this.seasonsService.findOne(year);
   }

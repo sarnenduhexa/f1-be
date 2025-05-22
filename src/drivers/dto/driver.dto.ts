@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Exclude } from 'class-transformer';
 import { IsString, IsOptional, IsDateString } from 'class-validator';
 
 export class DriverDto {
@@ -41,4 +42,10 @@ export class DriverDto {
   @ApiProperty({ description: "Driver's nationality" })
   @IsString()
   nationality: string;
+
+  @Exclude()
+  createdAt: Date;
+
+  @Exclude()
+  updatedAt: Date;
 }
