@@ -1,4 +1,12 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  SerializeOptions,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RacesService } from './races.service';
 import { RaceDto } from './dto/race.dto';
@@ -15,6 +23,8 @@ export class RacesController {
     description: 'Returns all races for the specified season',
     type: [RaceDto],
   })
+  @UseInterceptors(ClassSerializerInterceptor)
+  @SerializeOptions({ type: RaceDto })
   async findBySeason(
     @Param('season', ParseIntPipe) season: number,
   ): Promise<RaceDto[]> {
