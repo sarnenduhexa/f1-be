@@ -9,9 +9,14 @@ on:
 env:
   DOCKER_IMAGE: sarnenduhexa/f1-be
   DOCKER_TAG: ${{ github.sha }}
+  NODE_VERSION: '22'
+  # DOCKER_PLATFORMS: linux/amd64,linux/arm64
+  DOCKER_PLATFORMS: linux/amd64
 
 jobs:
+  # Quality Assurance Jobs
   test:
+    name: Run Tests and Linting
     runs-on: ubuntu-latest
     
     steps:
@@ -21,7 +26,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '22'
+        node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
 
     - name: Install dependencies
@@ -33,7 +38,51 @@ jobs:
     - name: Run tests
       run: npm test
 
+  # Security Jobs
+  codeql:
+    name: CodeQL Analysis
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: javascript
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  trivy-dependency:
+    name: Dependency Vulnerability Scan
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Run Trivy filesystem scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'library'
+        severity: 'CRITICAL,HIGH'
+
+  # Deployment Jobs
   docker:
+    name: Build and Push Docker Image
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -56,32 +105,13 @@ jobs:
       with:
         context: .
         push: true
-        # TODO: Uncomment this to build for multiple platforms.
-        # For now, we are only building for amd64 to save usage.
-        # platforms: linux/amd64,linux/arm64
+        platforms: ${{ env.DOCKER_PLATFORMS }}
         tags: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }},${{ env.DOCKER_IMAGE }}:latest
-
-  codeql:
-    needs: test
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      actions: read
-      contents: read
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
-      with:
-        languages: javascript
-
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
   trivy-container:
+    name: Container Vulnerability Scan
     needs: docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -98,23 +128,4 @@ jobs:
         exit-code: '1'
         ignore-unfixed: true
         vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
-
-  trivy-dependency:
-    needs: test
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Run Trivy filesystem scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'table'
-        exit-code: '1'
-        ignore-unfixed: true
-        vuln-type: 'library'
         severity: 'CRITICAL,HIGH'
