@@ -26,6 +26,9 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm ci --only=production
 
+# Install curl for health check
+RUN apk add --no-cache curl
+
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/migrations ./src/migrations
