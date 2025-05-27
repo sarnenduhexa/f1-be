@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { SeasonsModule } from './seasons/seasons.module';
 import { RacesModule } from './races/races.module';
 import { DriversModule } from './drivers/drivers.module';
+import { HealthModule } from './health/health.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -31,8 +30,9 @@ import configuration from './config/configuration';
     SeasonsModule,
     RacesModule,
     DriversModule,
+    HealthModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
