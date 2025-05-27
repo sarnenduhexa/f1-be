@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SeasonsModule } from './seasons/seasons.module';
 import { RacesModule } from './races/races.module';
 import { DriversModule } from './drivers/drivers.module';
+import { HealthModule } from './health/health.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -29,6 +30,7 @@ import configuration from './config/configuration';
     SeasonsModule,
     RacesModule,
     DriversModule,
+    HealthModule,
   ],
   controllers: [],
   providers: [],
