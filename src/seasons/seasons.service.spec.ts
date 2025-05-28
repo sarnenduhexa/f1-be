@@ -48,8 +48,8 @@ describe('SeasonsService', () => {
   };
 
   const mockSeasonWithoutWinner: Partial<Season> = {
-    year: 2022,
-    url: 'https://api.jolpi.ca/ergast/f1/2022',
+    year: 2023,
+    url: 'https://api.jolpi.ca/ergast/f1/2023',
     winnerDriverId: undefined,
     winner: undefined,
   };
@@ -167,6 +167,10 @@ describe('SeasonsService', () => {
         { year: mockSeasonWithoutWinner.year },
         { winnerDriverId: mockDriver.driverId },
       );
+      expect(mockedAxios.get).toHaveBeenNthCalledWith(
+        1,
+        'https://api.jolpi.ca/ergast/f1/2023/driverStandings/1',
+      );
     });
 
     it('should fetch and store seasons with winner data if none exist in repository', async () => {
@@ -229,6 +233,19 @@ describe('SeasonsService', () => {
         { year: season },
         { winnerDriverId: mockDriver.driverId },
       );
+      expect(mockedAxios.get).toHaveBeenNthCalledWith(
+        1,
+        'https://api.jolpi.ca/ergast/f1/seasons',
+        {
+          params: {
+            offset: 55,
+          },
+        },
+      );
+      expect(mockedAxios.get).toHaveBeenNthCalledWith(
+        2,
+        'https://api.jolpi.ca/ergast/f1/2023/driverStandings/1',
+      );
     });
 
     it('should handle errors when fetching winner data', async () => {
@@ -238,6 +255,160 @@ describe('SeasonsService', () => {
       const result = await service.findAll();
       expect(result).toEqual([mockSeasonWithoutWinner]);
       expect(mockSeasonRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return season from repository if it exists with winner data', async () => {
+      mockSeasonRepository.findOne.mockResolvedValue(mockSeason);
+
+      const result = await service.findOne(2023);
+
+      expect(result).toEqual(mockSeason);
+      expect(mockSeasonRepository.findOne).toHaveBeenCalledWith({
+        where: { year: 2023 },
+        relations: ['winner'],
+      });
+    });
+
+    it('should fetch season from API if not found in repository', async () => {
+      mockSeasonRepository.findOne.mockResolvedValueOnce(null);
+
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          MRData: {
+            SeasonTable: {
+              Seasons: [mockSeasonApiResponse],
+            },
+          },
+        },
+      });
+
+      mockSeasonRepository.find.mockResolvedValueOnce([
+        mockSeasonWithoutWinner,
+      ]);
+
+      const result = await service.findOne(2023);
+
+      expect(result).toEqual(mockSeason);
+      expect(mockSeasonRepository.findOne).toHaveBeenCalledWith({
+        where: { year: 2023 },
+        relations: ['winner'],
+      });
+      expect(mockedAxios.get).toHaveBeenNthCalledWith(
+        1,
+        'https://api.jolpi.ca/ergast/f1/seasons',
+        {
+          params: {
+            offset: 55,
+          },
+        },
+      );
+      expect(mockedAxios.get).toHaveBeenNthCalledWith(
+        2,
+        'https://api.jolpi.ca/ergast/f1/2023/driverStandings/1',
+      );
+    });
+
+    it('should fetch winner data if season exists but has no winner', async () => {
+      mockSeasonRepository.findOne
+        .mockResolvedValueOnce(mockSeasonWithoutWinner)
+        .mockResolvedValueOnce(mockSeason);
+
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          MRData: {
+            StandingsTable: {
+              StandingsLists: [
+                {
+                  DriverStandings: [
+                    {
+                      Driver: mockDriverApiResponse,
+                      points: '454',
+                      wins: '19',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      mockDriversService.findOrCreate.mockResolvedValue(mockDriver);
+
+      const result = await service.findOne(2023);
+
+      expect(result).toEqual(mockSeason);
+      expect(mockSeasonRepository.update).toHaveBeenCalledWith(
+        { year: 2023 },
+        { winnerDriverId: mockDriver.driverId },
+      );
+      expect(mockedAxios.get).toHaveBeenNthCalledWith(
+        1,
+        'https://api.jolpi.ca/ergast/f1/2023/driverStandings/1',
+      );
+    });
+
+    it('should throw NotFoundException if season not found in API', async () => {
+      mockSeasonRepository.findOne.mockResolvedValueOnce(null);
+
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          MRData: {
+            SeasonTable: {
+              Seasons: [],
+            },
+          },
+        },
+      });
+
+      mockSeasonRepository.find.mockResolvedValue([]);
+
+      await expect(service.findOne(2023)).rejects.toThrow(
+        'Season 2023 not found',
+      );
+    });
+
+    it('should throw NotFoundException if season not found after fetching winner data', async () => {
+      mockSeasonRepository.findOne
+        .mockResolvedValueOnce(mockSeasonWithoutWinner)
+        .mockResolvedValueOnce(null);
+
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          MRData: {
+            StandingsTable: {
+              StandingsLists: [
+                {
+                  DriverStandings: [
+                    {
+                      Driver: mockDriverApiResponse,
+                      points: '454',
+                      wins: '19',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      mockDriversService.findOrCreate.mockResolvedValue(mockDriver);
+
+      await expect(service.findOne(2022)).rejects.toThrow(
+        'Season 2022 not found',
+      );
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockSeasonRepository.findOne.mockResolvedValueOnce(null);
+      mockedAxios.get.mockRejectedValueOnce(new Error('API Error'));
+
+      await expect(service.findOne(2023)).rejects.toThrow(
+        'Failed to fetch season 2023',
+      );
     });
   });
 });

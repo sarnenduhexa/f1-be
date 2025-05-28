@@ -53,33 +53,56 @@ export class SeasonsService {
   }
 
   async findOne(year: number): Promise<SeasonDto> {
-    const season = await this.seasonsRepository.findOne({
-      where: { year },
-      relations: ['winner'],
-    });
-
-    if (!season) {
-      const seasons = await this.fetchAndStoreSeasons();
-      const foundSeason = seasons.find((s) => s.year === year);
-      if (!foundSeason) {
-        throw new NotFoundException(`Season ${year} not found`);
-      }
-      return foundSeason;
-    }
-
-    if (!season.winnerDriverId) {
-      await this.fetchAndStoreWinners([season]);
-      const updatedSeason = await this.seasonsRepository.findOne({
+    try {
+      // First try to find the season in the database
+      let season = await this.seasonsRepository.findOne({
         where: { year },
         relations: ['winner'],
       });
-      if (!updatedSeason) {
-        throw new NotFoundException(`Season ${year} not found`);
-      }
-      return updatedSeason;
-    }
 
-    return season;
+      // If season doesn't exist, fetch all seasons and try again
+      if (!season) {
+        this.logger.debug(
+          `Season ${year} not found in database, fetching from API...`,
+        );
+        const seasons = await this.fetchAndStoreSeasons();
+        const foundSeason = seasons.find((s) => s.year === year);
+
+        if (!foundSeason) {
+          this.logger.warn(`Season ${year} not found in API response`);
+          throw new NotFoundException(`Season ${year} not found`);
+        }
+        season = foundSeason;
+      }
+
+      // If season exists but has no winner, fetch winner data
+      if (!season.winnerDriverId) {
+        this.logger.debug(`Fetching winner data for season ${year}...`);
+        await this.fetchAndStoreWinners([season]);
+        const updatedSeason = await this.seasonsRepository.findOne({
+          where: { year },
+          relations: ['winner'],
+        });
+
+        if (!updatedSeason) {
+          this.logger.error(
+            `Failed to retrieve season ${year} after fetching winner data`,
+          );
+          throw new NotFoundException(`Season ${year} not found`);
+        }
+        season = updatedSeason;
+      }
+
+      return season;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(
+        `Error fetching season ${year}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw new NotFoundException(`Failed to fetch season ${year}`);
+    }
   }
 
   private async fetchAndStoreSeasons(): Promise<Season[]> {
