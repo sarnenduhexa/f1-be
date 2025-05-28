@@ -10,9 +10,11 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RacesService } from './races.service';
 import { RaceDto } from './dto/race.dto';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @ApiTags('races')
 @Controller('races')
+@UseInterceptors(CacheInterceptor)
 export class RacesController {
   constructor(private readonly racesService: RacesService) {}
 
