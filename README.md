@@ -7,60 +7,10 @@ A NestJS backend application for the F1 Dashboard that provides data about F1 se
 - RESTful API endpoints for F1 seasons and races
 - OpenAPI/Swagger documentation
 - PostgreSQL database integration
-- External API integration with Ergast F1 API
+- External API integration with Ergast(jolpi) F1 API
 - Unit tests
 - TypeORM migrations for database schema management
 - Health check endpoints for monitoring application status
-
-## Health Checks
-
-The application includes health check endpoints to monitor the status of various components. These endpoints are implemented using the `@nestjs/terminus` package.
-
-### Available Health Checks
-
-- **Database Health Check**: Monitors the connection to the PostgreSQL database
-- **HTTP Health Check**: Monitors HTTP connectivity (currently disabled due to rate limiting)
-
-### Accessing Health Checks
-
-The health check endpoint is available at:
-```
-GET /health
-```
-
-### Response Format
-
-The health check endpoint returns a JSON response with the following structure:
-```json
-{
-  "status": "ok",
-  "info": {
-    "database": {
-      "status": "up"
-    }
-  },
-  "error": {},
-  "details": {
-    "database": {
-      "status": "up"
-    }
-  }
-}
-```
-
-### Status Codes
-
-- `status: "ok"`: All health checks passed
-- `status: "error"`: One or more health checks failed
-
-### Monitoring Integration
-Currently the health check endpoint is being used in
-- docker compose healthcheck
-
-The health check endpoint can be integrated in future with monitoring tools like:
-- Kubernetes liveness/readiness probes
-- Load balancers
-- Monitoring services (e.g., Prometheus, Grafana)
 
 ## Prerequisites
 
@@ -280,25 +230,69 @@ Run e2e tests:
 npm run test:e2e
 ```
 
+## Health Checks
+
+The application includes health check endpoints to monitor the status of various components. These endpoints are implemented using the `@nestjs/terminus` package.
+
+### Available Health Checks
+
+- **Database Health Check**: Monitors the connection to the PostgreSQL database
+- **HTTP Health Check**: Monitors HTTP connectivity (currently disabled due to rate limiting)
+
+### Accessing Health Checks
+
+The health check endpoint is available at:
+```
+GET /health
+```
+
+### Response Format
+
+The health check endpoint returns a JSON response with the following structure:
+```json
+{
+  "status": "ok",
+  "info": {
+    "database": {
+      "status": "up"
+    }
+  },
+  "error": {},
+  "details": {
+    "database": {
+      "status": "up"
+    }
+  }
+}
+```
+
+### Status Codes
+
+- `status: "ok"`: All health checks passed
+- `status: "error"`: One or more health checks failed
+
+### Monitoring Integration
+Currently the health check endpoint is being used in
+- docker compose healthcheck
+
+The health check endpoint can be integrated in future with monitoring tools like:
+- Kubernetes liveness/readiness probes
+- Load balancers
+- Monitoring services (e.g., Prometheus, Grafana)
+
 ## Database Schema
 
 ### Seasons
-- year (Primary Key)
-- url
-- createdAt
-- updatedAt
+
+Look at `season.entity.ts`
 
 ### Races
-- id (Primary Key)
-- season
-- round
-- raceName
-- circuitName
-- date
-- time
-- url
-- createdAt
-- updatedAt
+
+Look at `race.entity.ts`
+
+### Drivers
+
+Look at `driver.entity.ts`
 
 ## External API
 
