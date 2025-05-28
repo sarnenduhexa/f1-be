@@ -25,6 +25,8 @@ export class SeasonsService {
       relations: ['winner'],
     });
 
+    // If there are no seasons, fetch them from the API and store them in the database
+    // Also fetch the winners for the seasons
     if (seasons.length === 0) {
       await this.fetchAndStoreSeasons();
       const newSeasons = await this.seasonsRepository.find({
@@ -40,7 +42,8 @@ export class SeasonsService {
     const seasonsWithoutWinner = seasons.filter(
       (season) => !season.winnerDriverId,
     );
-
+    // If there are seasons, but no winner,
+    // fetch the winner from the API and store it in the database
     if (seasonsWithoutWinner.length > 0) {
       await this.fetchAndStoreWinners(seasonsWithoutWinner);
       return this.seasonsRepository.find({
@@ -49,6 +52,8 @@ export class SeasonsService {
       });
     }
 
+    // If there are seasons and winners in the database,
+    // return the seasons with the winners.
     return seasons;
   }
 
