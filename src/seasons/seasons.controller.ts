@@ -10,9 +10,11 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SeasonsService } from './seasons.service';
 import { SeasonDto } from './dto/season.dto';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @ApiTags('seasons')
 @Controller('seasons')
+@UseInterceptors(CacheInterceptor)
 export class SeasonsController {
   constructor(private readonly seasonsService: SeasonsService) {}
 

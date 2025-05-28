@@ -7,6 +7,7 @@ A NestJS backend application for the F1 Dashboard that provides data about F1 se
 - RESTful API endpoints for F1 seasons and races
 - OpenAPI/Swagger documentation
 - PostgreSQL database integration
+- Redis caching for improved performance
 - External API integration with Ergast(jolpi) F1 API
 - Unit tests
 - TypeORM migrations for database schema management
@@ -16,6 +17,7 @@ A NestJS backend application for the F1 Dashboard that provides data about F1 se
 
 - Node.js (v14 or higher)
 - PostgreSQL
+- Redis
 - npm or yarn
 
 ## Running for the First Time
@@ -40,6 +42,8 @@ DB_PORT=5432
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
 DB_DATABASE=f1_db
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ```
 
 4. Create the PostgreSQL database:
@@ -297,6 +301,40 @@ Look at `driver.entity.ts`
 ## External API
 
 This application integrates with the Ergast F1 API (https://api.jolpi.ca/ergast/) to fetch F1 data.
+
+## Caching (Memory and Redis)
+
+The application uses a dual-layer caching strategy with both in-memory and Redis stores to improve performance and reduce load on the database and external APIs. The caching implementation includes:
+
+### Configuration
+
+Redis caching is configured in `app.module.ts` with the following default settings:
+- Host: localhost
+- Port: 6379
+- TTL: 1 minute
+- Maximum items: 100
+
+The application uses a two-tier caching strategy:
+1. In-memory cache (first tier) using `CacheableMemory`
+2. Redis cache (second tier) using `@keyv/redis`
+
+### Usage in Controllers
+
+The application uses NestJS's built-in `CacheInterceptor` for automatic caching. To enable caching in your controllers:
+
+Read more at [Auto Chaching](https://docs.nestjs.com/techniques/caching#auto-caching-responses)
+
+The `CacheInterceptor` will automatically:
+- Cache GET request responses
+- Use the configured TTL
+- Handle cache invalidation
+- Use both memory and Redis stores
+
+### Cache Invalidation
+
+The cache is automatically invalidated when:
+- The TTL expires (1 minute by default)
+- The maximum number of items is reached (100 by default)
 
 ## License
 
