@@ -20,6 +20,7 @@ export class SeasonsService {
   ) {}
 
   async findAll(): Promise<SeasonDto[]> {
+    this.logger.debug('Finding all seasons');
     const seasons = await this.seasonsRepository.find({
       order: { year: 'ASC' },
       relations: ['winner'],
@@ -58,6 +59,7 @@ export class SeasonsService {
   }
 
   async findOne(year: number): Promise<SeasonDto> {
+    this.logger.debug(`Finding season ${year}`);
     try {
       // First try to find the season in the database
       let season = await this.seasonsRepository.findOne({

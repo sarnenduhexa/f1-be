@@ -27,6 +27,7 @@ export class RacesService {
   ) {}
 
   async findBySeason(season: number): Promise<Race[]> {
+    this.logger.debug(`Finding races for season ${season}`);
     const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
     try {
       // First check if we have races for this season
@@ -113,6 +114,7 @@ export class RacesService {
   }
 
   private async fetchAndStoreRacesBySeason(season: number): Promise<Race[]> {
+    this.logger.debug(`Fetching and storing races for season ${season}`);
     const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
     try {
       const response = await axios.get<ErgastResponse>(

@@ -42,6 +42,7 @@ DB_PORT=5432
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
 DB_DATABASE=f1_db
+REDIS_ENABLED=true
 REDIS_HOST=localhost
 REDIS_PORT=6379
 ```
@@ -125,7 +126,7 @@ npm run start:prod
 
 Build the Docker image:
 ```bash
-docker build -t sarnenduhexa/f1-dashboard-backend:latest .
+docker build -t sarnenduhexa/f1-be:latest .
 ```
 
 ### Running with Docker
@@ -133,14 +134,14 @@ docker build -t sarnenduhexa/f1-dashboard-backend:latest .
 Run the container with environment variables:
 ```bash
 docker run -d \
-  --name f1-dashboard-backend \
+  --name f1-be \
   -p 3000:3000 \
   -e DB_HOST=localhost \
   -e DB_PORT=5432 \
   -e DB_USERNAME=postgres \
   -e DB_PASSWORD=postgres \
   -e DB_DATABASE=f1_db \
-  sarnenduhexa/f1-dashboard-backend:latest
+  sarnenduhexa/f1-be:latest
 ```
 
 ### Publishing to Docker Hub
@@ -152,7 +153,7 @@ docker login
 
 2. Push the image:
 ```bash
-docker push sarnenduhexa/f1-dashboard-backend:latest
+docker push sarnenduhexa/f1-be:latest
 ```
 
 ## CI/CD Pipeline
@@ -315,8 +316,8 @@ Redis caching is configured in `app.module.ts` with the following default settin
 - Maximum items: 100
 
 The application uses a two-tier caching strategy:
-1. In-memory cache (first tier) using `CacheableMemory`
-2. Redis cache (second tier) using `@keyv/redis`
+1. In-memory cache (first tier).
+2. Redis cache (second tier) using `@keyv/redis` (Conditionally, configured by ENV variables)
 
 ### Usage in Controllers
 
