@@ -201,6 +201,14 @@ The pipeline automatically builds and pushes Docker images to Docker Hub:
   - `latest`: Latest stable version
   - `<commit-sha>`: Version-specific tag
 
+### Deployment
+
+The pipeline automatically deploys the application to Render when changes are pushed to the main branch:
+- Uses Render's webhook deployment system
+- Triggers a new deployment after successful Docker image build
+- Only deploys from the main branch
+- Requires `RENDER_DEPLOY_HOOK_URL` secret to be configured in GitHub
+
 ### Required Secrets
 
 The following secrets need to be configured in GitHub:
