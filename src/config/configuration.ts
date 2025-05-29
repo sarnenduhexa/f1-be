@@ -8,11 +8,14 @@ export default () => ({
     database: process.env.DB_DATABASE || 'f1_db',
     synchronize: process.env.NODE_ENV === 'development',
   },
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+  cache: {
     ttl: 60 * 1000, // 1 minute
     max: 100, // maximum number of items in cache
+    redis: {
+      enabled: process.env.REDIS_ENABLED === 'true',
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    },
   },
   ergastApi: {
     baseUrl: 'https://api.jolpi.ca/ergast',

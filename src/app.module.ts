@@ -8,7 +8,6 @@ import { DriversModule } from './drivers/drivers.module';
 import { HealthModule } from './health/health.module';
 import configuration from './config/configuration';
 import { createKeyv, Keyv } from '@keyv/redis';
-import { CacheableMemory } from 'cacheable';
 
 @Module({
   imports: [
@@ -20,19 +19,17 @@ import { CacheableMemory } from 'cacheable';
       isGlobal: true,
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        return {
-          stores: [
-            new Keyv({
-              store: new CacheableMemory({
-                ttl: configService.get('redis.ttl'),
-                lruSize: configService.get('redis.max'),
-              }),
-            }),
+        const stores: Keyv[] = [];
+        if (configService.get('cache.redis.enabled')) {
+          stores.push(
             createKeyv(
-              `redis://${configService.get('redis.host')}:${configService.get('redis.port')}`,
+              `redis://${configService.get('cache.redis.host')}:${configService.get('cache.redis.port')}`,
             ),
-          ],
-          ttl: configService.get('redis.ttl'),
+          );
+        }
+        return {
+          stores,
+          ttl: configService.get('cache.ttl'),
         };
       },
       inject: [ConfigService],

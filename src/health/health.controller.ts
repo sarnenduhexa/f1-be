@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Logger } from '@nestjs/common';
 import {
   HealthCheck,
   HealthCheckService,
@@ -8,6 +8,7 @@ import {
 
 @Controller('health')
 export class HealthController {
+  private readonly logger = new Logger(HealthController.name);
   constructor(
     private health: HealthCheckService,
     private http: HttpHealthIndicator,
@@ -17,6 +18,7 @@ export class HealthController {
   @Get()
   @HealthCheck()
   check() {
+    this.logger.debug('Checking health');
     return this.health.check([
       // HTTP health check
       // As this is rate limited, this is not reliable.
