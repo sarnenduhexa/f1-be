@@ -67,3 +67,7 @@ export interface ErgastResponse {
     RaceTable: ErgastRaceTable;
   };
 }
+
+export interface RaceWithWinner extends ErgastRace {
+  winnerData: ErgastResult | null;
+}

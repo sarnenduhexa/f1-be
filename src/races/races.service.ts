@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, IsNull, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Race } from './entities/race.entity';
@@ -77,6 +77,8 @@ export class RacesService {
                 // Update race with winner data
                 race.winnerDriver = driver;
                 race.winnerDriverId = driver.driverId;
+                race.winnerConstructorId =
+                  winnerData.Constructor?.constructorId;
                 race.winnerTime = winnerData.Time?.time || '';
                 race.winnerLaps = parseInt(winnerData.laps, 10);
                 race.winnerGrid = parseInt(winnerData.grid, 10);
@@ -113,6 +115,11 @@ export class RacesService {
     }
   }
 
+  async syncRaces(season: number) {
+    this.logger.debug(`Syncing races for season ${season}`);
+    await this.fetchAndStoreRacesBySeason(season);
+  }
+
   private async fetchAndStoreRacesBySeason(season: number): Promise<Race[]> {
     this.logger.debug(`Fetching and storing races for season ${season}`);
     const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
@@ -122,20 +129,26 @@ export class RacesService {
       );
       const races = response.data.MRData.RaceTable.Races;
 
-      // Fetch winner data for each race
+      // Get all existing races for the season in a single query
+      const existingRaces = await this.raceRepository.find({
+        where: { season },
+        relations: ['winnerDriver'],
+      });
+
+      // Create a map of existing races for quick lookup
+      const existingRacesMap = new Map(
+        existingRaces.map((race) => [race.id, race]),
+      );
+
+      // Fetch winner data for each race that doesn't exist or doesn't have winner data
       const racesWithWinners = await Promise.all(
         races.map(async (race) => {
-          // Check if we already have this race with winner data in DB
-          const existingRace = await this.raceRepository.findOne({
-            where: {
-              season: parseInt(race.season, 10),
-              round: parseInt(race.round, 10),
-              winnerDriverId: Not(IsNull()),
-            },
-            relations: ['winnerDriver'],
-          });
+          const existingRace = existingRacesMap.get(
+            `${race.season}-${race.round}`,
+          );
 
-          if (existingRace) {
+          // If race exists and has winner data, return it
+          if (existingRace?.winnerDriverId) {
             return existingRace;
           }
 
@@ -148,6 +161,9 @@ export class RacesService {
 
             // If we have winner data, ensure the driver exists in our database
             if (winnerData?.Driver) {
+              this.logger.log(
+                `Successfully fetched winner data for race ${race.round}`,
+              );
               await this.driversService.findOrCreate(winnerData.Driver);
             }
 
@@ -167,7 +183,14 @@ export class RacesService {
         }),
       );
 
-      return this.processAndStoreRaces(racesWithWinners);
+      // Filter out races that already have winner data or don't exist in the database
+      const racesToProcess = racesWithWinners.filter(
+        (race: RaceWithWinner) =>
+          race.winnerData ||
+          !existingRacesMap.get(`${race.season}-${race.round}`),
+      );
+
+      return this.processAndStoreRaces(racesToProcess, season);
     } catch (error) {
       this.logger.error(
         `Error fetching races for season ${season}: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -178,12 +201,14 @@ export class RacesService {
 
   private async processAndStoreRaces(
     races: (RaceWithWinner | Race)[],
+    season: number,
   ): Promise<Race[]> {
-    const processedRaces = races.map((race) => {
-      if (race instanceof Race) {
-        return race;
-      }
+    // Separate the new races
+    const newRaces = races.filter(
+      (race): race is RaceWithWinner => !(race instanceof Race),
+    );
 
+    const processedNewRaces = newRaces.map((race) => {
       const raceData: Partial<Race> = {
         id: `${race.season}-${race.round}`,
         season: parseInt(race.season, 10),
@@ -215,9 +240,15 @@ export class RacesService {
     });
 
     try {
-      const savedRaces = await this.raceRepository.save(processedRaces);
+      // Only save new races
+      if (processedNewRaces.length > 0) {
+        await this.raceRepository.save(processedNewRaces);
+      }
+
+      // Return all races for the season with winner driver relations
       return this.raceRepository.find({
-        where: { id: In(savedRaces.map((race) => race.id)) },
+        where: { season },
+        order: { round: 'ASC' },
         relations: ['winnerDriver'],
       });
     } catch (error) {
