@@ -112,6 +112,56 @@ export class SeasonsService {
     }
   }
 
+  async syncSeasons() {
+    // First get existing seasons from DB
+    const existingSeasons = await this.seasonsRepository.find({
+      order: { year: 'ASC' },
+      relations: ['winner'],
+    });
+
+    // Fetch seasons from API
+    const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
+    const response = await axios.get<ErgastResponse>(`${baseUrl}/f1/seasons`, {
+      params: {
+        offset: 55, // Hardcoded to only show data from 2005
+      },
+    });
+
+    const apiSeasons =
+      response.data.MRData.SeasonTable?.Seasons.map((season) => ({
+        year: season.season,
+        url: season.url,
+      })) ?? [];
+
+    // Find new seasons that don't exist in DB
+    const newSeasons = apiSeasons.filter(
+      (apiSeason) =>
+        !existingSeasons.some((dbSeason) => dbSeason.year == apiSeason.year),
+    );
+
+    // Save only new seasons if any exist
+    if (newSeasons.length > 0) {
+      this.logger.log(`Found ${newSeasons.length} new seasons`);
+      await this.seasonsRepository.save(newSeasons);
+    }
+
+    // Get all seasons including newly added ones
+    const allSeasons = await this.seasonsRepository.find({
+      order: { year: 'ASC' },
+      relations: ['winner'],
+    });
+
+    // Find seasons without winner data
+    const seasonsWithoutWinner = allSeasons.filter(
+      (season) => !season.winnerDriverId,
+    );
+
+    // Fetch winner data for seasons without winners
+    if (seasonsWithoutWinner.length > 0) {
+      await this.fetchAndStoreWinners(seasonsWithoutWinner);
+    }
+  }
+
   private async fetchAndStoreSeasons(): Promise<Season[]> {
     const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
     const response = await axios.get<ErgastResponse>(`${baseUrl}/f1/seasons`, {
@@ -134,6 +184,9 @@ export class SeasonsService {
   }
 
   private async fetchAndStoreWinners(seasons: Season[]): Promise<void> {
+    this.logger.debug(
+      `Fetching and storing winners for ${seasons.length} seasons`,
+    );
     const baseUrl = this.configService.get<string>('ergastApi.baseUrl');
 
     for (const season of seasons) {

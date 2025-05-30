@@ -411,4 +411,176 @@ describe('SeasonsService', () => {
       );
     });
   });
+
+  describe('syncSeasons', () => {
+    const mockApiSeasonsResponse = {
+      data: {
+        MRData: {
+          SeasonTable: {
+            Seasons: [
+              { season: '2023', url: 'https://api.jolpi.ca/ergast/f1/2023' },
+              { season: '2024', url: 'https://api.jolpi.ca/ergast/f1/2024' },
+            ],
+          },
+        },
+      },
+    };
+
+    it('should not save any seasons when no new seasons are available', async () => {
+      // Mock existing seasons in DB
+      mockSeasonRepository.find.mockResolvedValueOnce([
+        { year: 2023, url: 'https://api.jolpi.ca/ergast/f1/2023' },
+        { year: 2024, url: 'https://api.jolpi.ca/ergast/f1/2024' },
+      ]);
+
+      // Mock API response
+      mockedAxios.get.mockResolvedValueOnce(mockApiSeasonsResponse);
+
+      // Mock final seasons list
+      mockSeasonRepository.find.mockResolvedValueOnce([
+        { year: 2023, url: 'https://api.jolpi.ca/ergast/f1/2023' },
+        { year: 2024, url: 'https://api.jolpi.ca/ergast/f1/2024' },
+      ]);
+
+      await service.syncSeasons();
+
+      expect(mockSeasonRepository.save).not.toHaveBeenCalled();
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        'https://api.jolpi.ca/ergast/f1/seasons',
+        { params: { offset: 55 } },
+      );
+    });
+
+    it('should save new seasons when they are available', async () => {
+      // Mock existing seasons in DB
+      mockSeasonRepository.find.mockResolvedValueOnce([
+        { year: 2023, url: 'https://api.jolpi.ca/ergast/f1/2023' },
+      ]);
+
+      // Mock API response with new season
+      mockedAxios.get.mockResolvedValueOnce(mockApiSeasonsResponse);
+
+      // Mock final seasons list
+      mockSeasonRepository.find.mockResolvedValueOnce([
+        { year: 2023, url: 'https://api.jolpi.ca/ergast/f1/2023' },
+        { year: 2024, url: 'https://api.jolpi.ca/ergast/f1/2024' },
+      ]);
+
+      await service.syncSeasons();
+
+      expect(mockSeasonRepository.save).toHaveBeenCalledWith([
+        { year: '2024', url: 'https://api.jolpi.ca/ergast/f1/2024' },
+      ]);
+    });
+
+    it('should fetch winner data for seasons without winners', async () => {
+      // Mock existing seasons in DB
+      mockSeasonRepository.find.mockResolvedValueOnce([
+        {
+          year: 2023,
+          url: 'https://api.jolpi.ca/ergast/f1/2023',
+          winnerDriverId: null,
+        },
+      ]);
+
+      // Mock API response
+      mockedAxios.get.mockResolvedValueOnce(mockApiSeasonsResponse);
+
+      // Mock final seasons list
+      mockSeasonRepository.find.mockResolvedValueOnce([
+        {
+          year: 2023,
+          url: 'https://api.jolpi.ca/ergast/f1/2023',
+          winnerDriverId: null,
+        },
+      ]);
+
+      // Mock winner API response
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          MRData: {
+            StandingsTable: {
+              StandingsLists: [
+                {
+                  DriverStandings: [
+                    {
+                      Driver: mockDriverApiResponse,
+                      points: '454',
+                      wins: '19',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      mockDriversService.findOrCreate.mockResolvedValue(mockDriver);
+
+      await service.syncSeasons();
+
+      expect(mockSeasonRepository.update).toHaveBeenCalledWith(
+        { year: 2023 },
+        { winnerDriverId: mockDriver.driverId },
+      );
+    });
+
+    it('should handle both new seasons and seasons without winners', async () => {
+      // Mock existing seasons in DB
+      mockSeasonRepository.find.mockResolvedValueOnce([
+        {
+          year: 2023,
+          url: 'https://api.jolpi.ca/ergast/f1/2023',
+          winnerDriverId: null,
+        },
+      ]);
+
+      // Mock API response with new season
+      mockedAxios.get.mockResolvedValueOnce(mockApiSeasonsResponse);
+
+      // Mock final seasons list
+      mockSeasonRepository.find.mockResolvedValueOnce([
+        {
+          year: 2023,
+          url: 'https://api.jolpi.ca/ergast/f1/2023',
+          winnerDriverId: null,
+        },
+        { year: 2024, url: 'https://api.jolpi.ca/ergast/f1/2024' },
+      ]);
+
+      // Mock winner API response
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          MRData: {
+            StandingsTable: {
+              StandingsLists: [
+                {
+                  DriverStandings: [
+                    {
+                      Driver: mockDriverApiResponse,
+                      points: '454',
+                      wins: '19',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      mockDriversService.findOrCreate.mockResolvedValue(mockDriver);
+
+      await service.syncSeasons();
+
+      expect(mockSeasonRepository.save).toHaveBeenCalledWith([
+        { year: '2024', url: 'https://api.jolpi.ca/ergast/f1/2024' },
+      ]);
+      expect(mockSeasonRepository.update).toHaveBeenCalledWith(
+        { year: 2023 },
+        { winnerDriverId: mockDriver.driverId },
+      );
+    });
+  });
 });
