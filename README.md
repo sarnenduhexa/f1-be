@@ -6,7 +6,9 @@ A NestJS backend application for the F1 Dashboard that provides data about F1 se
 
 You can find a live demo of the swagger api here -> https://f1-be-latest.onrender.com/api
 
-This is deployed to the free tire of render, So it can take up to a minute to spin up after and idle state.
+> [!NOTE]
+> This is deployed to the free tire of render, So it can take up to a minute to spin up after an idle state.
+
 
 ## Features
 
@@ -21,7 +23,7 @@ This is deployed to the free tire of render, So it can take up to a minute to sp
 
 ## Prerequisites
 
-- Node.js (v14 or higher)
+- Node.js (v22 was used for development)
 - PostgreSQL
 - Redis
 - npm or yarn
