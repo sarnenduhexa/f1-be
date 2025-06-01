@@ -20,6 +20,7 @@ You can find a live demo of the swagger api here -> https://f1-be-latest.onrende
 - Unit tests
 - TypeORM migrations for database schema management
 - Health check endpoints for monitoring application status
+- Async job to refresh seasons weekly after every race.
 
 ## Prerequisites
 
@@ -300,6 +301,50 @@ The health check endpoint can be integrated in future with monitoring tools like
 - Kubernetes liveness/readiness probes
 - Load balancers
 - Monitoring services (e.g., Prometheus, Grafana)
+
+## Scheduled Jobs
+
+The application includes scheduled background jobs to keep the F1 data in sync with the external API. These jobs are implemented using the `@nestjs/schedule` package.
+
+### Available Jobs
+
+1. **Seasons Sync Job**
+   - **Schedule**: Runs every Sunday at 1 AM
+   - **Purpose**: Synchronizes all F1 seasons data
+   - **Implementation**: Uses `SeasonsService.syncSeasons()`
+
+2. **Current Season Races Sync Job**
+   - **Schedule**: Runs every Sunday at 3 AM
+   - **Purpose**: Synchronizes races for the current F1 season
+   - **Implementation**: Uses `RacesService.syncRaces()`
+
+### Job Configuration
+
+The jobs are configured using cron expressions:
+- Seasons sync: `0 1 * * 0` (Sunday at 1 AM)
+- Current season races sync: `0 3 * * 0` (Sunday at 3 AM)
+
+### Development Testing
+
+For local development and testing, the cron expressions can be modified to run more frequently:
+```typescript
+// Change to run every minute
+@Cron(CronExpression.EVERY_MINUTE)
+```
+
+### Error Handling
+
+Each job includes:
+- Comprehensive error logging
+- Error propagation for monitoring
+- Automatic retry on next scheduled run
+
+### Monitoring
+
+The jobs log their execution status using NestJS's built-in Logger:
+- Start of job execution
+- Successful completion
+- Error details if execution fails
 
 ## Database Schema
 
